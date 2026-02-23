@@ -62,6 +62,8 @@ public abstract class DatabaseConnectionManager : IConnectionManager
     public IDisposable OperationStarting(IUpgradeLog upgradeLog, List<SqlScript> executedScripts)
     {
         upgradeConnection = CreateConnection(upgradeLog);
+        if (upgradeConnection == null)
+            throw new InvalidOperationException("CreateConnection returned null");
         if (upgradeConnection.State == ConnectionState.Closed)
             upgradeConnection.Open();
         if (transactionStrategy != null)
@@ -105,12 +107,12 @@ public abstract class DatabaseConnectionManager : IConnectionManager
         try
         {
             errorMessage = "";
-            using (upgradeConnection = CreateConnection(upgradeLog))
+            using (var connection = CreateConnection(upgradeLog))
             {
-                if (upgradeConnection.State == ConnectionState.Closed)
-                    upgradeConnection.Open();
+                if (connection.State == ConnectionState.Closed)
+                    connection.Open();
                 var strategy = transactionStrategyFactory[TransactionMode.NoTransaction]();
-                strategy.Initialise(upgradeConnection, upgradeLog, new List<SqlScript>(), ExecutionTimeoutSeconds);
+                strategy.Initialise(connection, upgradeLog, new List<SqlScript>(), ExecutionTimeoutSeconds);
                 strategy.Execute(dbCommandFactory =>
                 {
                     using (var command = dbCommandFactory())
